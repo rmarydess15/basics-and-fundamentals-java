@@ -1,0 +1,234 @@
+import java.util.*;
+
+public class Main {
+
+    private static final int MAX_STUDENTS = 50;
+    private static final int MIN_GRADE = 0;
+    private static final int MAX_GRADE = 100;
+    private static final int PASS_THRESHOLD = 60;
+    private static final double AVERAGE_WARNING_LEVEL = 70.0;
+
+    private static class Student {
+        final String name;
+        final int score;
+
+        Student(String name, int score) {
+            this.name = name;
+            this.score = score;
+        }
+    }
+
+    private static class ClassStats {
+        List<Student> topStudents;
+        int highestScore;
+        double average;
+        int passCount;
+        int failCount;
+        boolean belowAverageWarning;
+    }
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+
+        try {
+            printHeader();
+
+            int n = readStudentCount(scanner);
+            System.out.println("-".repeat(45));
+
+            List<Student> students = new ArrayList<>();
+            for (int i = 0; i < n; i++) {
+                System.out.println();
+                System.out.println("Student #" + (i + 1));
+                String name = readName(scanner, students);
+                int score = readScore(scanner, name);
+                students.add(new Student(name, score));
+            }
+
+            ClassStats stats = computeStats(students);
+            printResults(students, stats);
+
+        } catch (NoSuchElementException e) {
+            System.out.println("\nInput ended unexpectedly. Exiting.");
+        } finally {
+            scanner.close();
+        }
+    }
+
+    private static void printHeader() {
+        printBanner("STUDENT GRADE ANALYZER");
+        System.out.println("Instructions:");
+        System.out.println("  - Names must contain letters only (no numbers/symbols)");
+        System.out.println("  - Scores must be whole numbers from " + MIN_GRADE + " to " + MAX_GRADE);
+        System.out.println();
+    }
+
+    private static void printSection(String title) {
+        System.out.println();
+        System.out.println(title.toUpperCase() + ":");
+    }
+
+    private static void printBanner(String title) {
+        int width = 45;
+        int padding = Math.max(0, (width - title.length()) / 2);
+        System.out.println("*".repeat(width));
+        System.out.println(" ".repeat(padding) + title);
+        System.out.println("*".repeat(width));
+    }
+
+    private static int readStudentCount(Scanner scanner) {
+        while (true) {
+            System.out.print("\nEnter number of students: ");
+            String input = scanner.nextLine().trim();
+            try {
+                int n = Integer.parseInt(input);
+                if (n <= 0) {
+                    System.out.println("Error: number of students must be greater than 0. Try again.");
+                    continue;
+                }
+                if (n > MAX_STUDENTS) {
+                    System.out.println("Error: maximum allowed is " + MAX_STUDENTS + " students. Try again.");
+                    continue;
+                }
+                return n;
+            } catch (NumberFormatException e) {
+                System.out.println("Error: please enter a whole number. Try again.");
+            }
+        }
+    }
+
+    private static String readName(Scanner scanner, List<Student> existingStudents) {
+        while (true) {
+            System.out.print("  Name: ");
+            String rawName = scanner.nextLine().trim();
+
+            if (rawName.isEmpty()) {
+                System.out.println("Error: name cannot be empty. Try again.");
+                continue;
+            }
+
+            if (!rawName.matches("[\\p{L}\\s'-]+")) {
+                System.out.println("Error: name must contain letters only (no numbers or symbols). Try again.");
+                continue;
+            }
+
+            String cleanedName = rawName.replaceAll("\\s+", " ");
+
+            for (Student s : existingStudents) {
+                if (s.name.equalsIgnoreCase(cleanedName)) {
+                    System.out.println("Note: another student is already named \"" + cleanedName + "\". Continuing anyway.");
+                    break;
+                }
+            }
+
+            return cleanedName;
+        }
+    }
+
+    private static int readScore(Scanner scanner, String studentName) {
+        while (true) {
+            System.out.print("  Score of " + studentName + " (" + MIN_GRADE + "-" + MAX_GRADE + "): ");
+            String input = scanner.nextLine().trim();
+
+            if (input.isEmpty()) {
+                System.out.println("Error: score cannot be empty. Try again.");
+                continue;
+            }
+            if (!input.matches("\\d+")) {
+                System.out.println("Error: score must be a whole number with no letters or symbols. Try again.");
+                continue;
+            }
+
+            try {
+                int score = Integer.parseInt(input);
+                if (score > MAX_GRADE) {
+                    System.out.println("Error: the maximum grade is " + MAX_GRADE + ". Try again.");
+                    continue;
+                }
+                if (score < MIN_GRADE) {
+                    System.out.println("Error: the minimum grade is " + MIN_GRADE + ". Try again.");
+                    continue;
+                }
+                return score;
+            } catch (NumberFormatException e) {
+                // safety net for a digit string too long to fit in an int
+                System.out.println("Error: score is not a valid number. Try again.");
+            }
+        }
+    }
+
+    private static ClassStats computeStats(List<Student> students) {
+        ClassStats stats = new ClassStats();
+
+        int highestScore = students.get(0).score;
+        for (Student s : students) {
+            if (s.score > highestScore) {
+                highestScore = s.score;
+            }
+        }
+        stats.highestScore = highestScore;
+
+        stats.topStudents = new ArrayList<>();
+        for (Student s : students) {
+            if (s.score == highestScore) {
+                stats.topStudents.add(s);
+            }
+        }
+
+        int total = 0;
+        int passCount = 0;
+        int failCount = 0;
+        for (Student s : students) {
+            total += s.score;
+            if (s.score >= PASS_THRESHOLD) {
+                passCount++;
+            } else {
+                failCount++;
+            }
+        }
+        stats.average = (double) total / students.size();
+        stats.passCount = passCount;
+        stats.failCount = failCount;
+        stats.belowAverageWarning = stats.average < AVERAGE_WARNING_LEVEL;
+
+        return stats;
+    }
+
+    private static void printResults(List<Student> students, ClassStats stats) {
+        System.out.println();
+        printBanner("RESULTS SUMMARY");
+
+        printSection("Letter Grades");
+        for (Student s : students) {
+            System.out.println(s.name + ": " + getLetterGrade(s.score));
+        }
+
+        printSection("Top Performer(s)");
+        System.out.println("Score: " + stats.highestScore);
+        List<String> topNames = new ArrayList<>();
+        for (Student s : stats.topStudents) {
+            topNames.add(s.name);
+        }
+        System.out.println("Student(s): " + String.join(", ", topNames));
+
+        printSection("Class Statistics");
+        System.out.printf("Average: %.2f%n", stats.average);
+        System.out.println("Passed (>=" + PASS_THRESHOLD + "): " + stats.passCount);
+        System.out.println("Failed (<" + PASS_THRESHOLD + "): " + stats.failCount);
+        System.out.println("Average below " + (int) AVERAGE_WARNING_LEVEL + "? " + stats.belowAverageWarning);
+
+        System.out.println();
+        System.out.println("*".repeat(45));
+    }
+
+    private static String getLetterGrade(int score) {
+        if (score >= 98) return "A+";
+        if (score >= 92) return "A";
+        if (score >= 87) return "B+";
+        if (score >= 81) return "B";
+        if (score >= 77) return "C+";
+        if (score >= 71) return "C";
+        if (score >= PASS_THRESHOLD) return "D";
+        return "F";
+    }
+}
